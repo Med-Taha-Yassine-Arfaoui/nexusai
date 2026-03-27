@@ -1,5 +1,42 @@
-node_modules
-# Keep environment variables out of version control
-.env
+# === Node Modules ===
+node_modules/
 
-/generated/prisma
+# === Next.js build output ===
+.next/
+out/
+
+# === Dist build folders (backend and other tools) ===
+dist/
+
+# === Environment variables ===
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# === Prisma ===
+prisma/dev.db
+prisma/dev.db-journal
+
+# === Logs ===
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === OS System Files ===
+.DS_Store
+Thumbs.db
+
+# === Editor garbage ===
+.vscode/
+.idea/
+
+# === Docker volumes if ever created ===
+docker-data/
+pgdata/
+postgres/
+
+# === Misc ===
+*.tsbuildinfo
