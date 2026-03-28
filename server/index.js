@@ -1,5 +1,9 @@
-const express = require("express");
-const cors = require("cors");
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+
+import authRoutes from "./src/routes/auth.js";
+import agentsRoute from "./src/routes/agents.js";
 
 const app = express();
 
@@ -7,9 +11,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// AUTH ROUTES (IMPORTANT)
-const authRoutes = require("./src/routes/auth");
+// Routes
 app.use("/auth", authRoutes);
+app.use("/agents", agentsRoute);
 
 // Status endpoint
 app.get("/api/status", (req, res) => {
@@ -20,6 +24,7 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+// Start server
 app.listen(5000, () => {
   console.log("Server running at http://localhost:5000");
 });
