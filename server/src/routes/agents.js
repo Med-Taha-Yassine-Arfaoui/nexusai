@@ -1,11 +1,19 @@
 import express from "express";
-import { runResearcher } from "../agents/researcher.js";
-import { runCritic } from "../agents/critic.js";
-import { runSynthesizer } from "../agents/synthesizer.js";
+import { runResearcherStream } from "../agents/researcher.js";
+import { runCriticStream } from "../agents/critic.js";
+import { runSynthesizerStream } from "../agents/synthesizer.js";
 
 const router = express.Router();
 
-// Orchestrator: Runs all 3 agents
+// Helper to collect streaming output into a string
+async function collectStream(streamGenerator) {
+  let fullText = "";
+  for await (const token of streamGenerator) {
+    fullText += token;
+  }
+  return fullText;
+}
+
 router.post("/run", async (req, res) => {
   try {
     const { query } = req.body;
@@ -14,21 +22,26 @@ router.post("/run", async (req, res) => {
       return res.status(400).json({ error: "Query is required" });
     }
 
-    console.log("Running AI agents for query:", query);
+    console.log("Running AI agents via HTTP:", query);
 
-    // STEP 1 — Researcher runs FIRST
-    const researcherOutput = await runResearcher(query);
+    // FAKE WEBSOCKET — collect tokens into a buffer
+    const fakeWS = {
+      send: () => {} // ignore WS messages
+    };
 
-    // STEP 2 — Critic checks Researcher
-    const criticOutput = await runCritic(researcherOutput);
+    // 1. Researcher
+    const researcherStream = await runResearcherStream(query, fakeWS);
+    const researcherOutput = researcherStream; // already final text
 
-    // STEP 3 — Synthesizer combines both
-    const finalOutput = await runSynthesizer(
-      researcherOutput,
-      criticOutput
-    );
+    // 2. Critic
+    const criticStream = await runCriticStream(researcherOutput, fakeWS);
+    const criticOutput = criticStream;
 
-    // Return everything for UI
+    // 3. Synthesizer
+    const finalStream = await runSynthesizerStream(researcherOutput, criticOutput, fakeWS);
+    const finalOutput = finalStream;
+
+    // Return the results just like before
     return res.json({
       researcher: researcherOutput,
       critic: criticOutput,
@@ -37,7 +50,7 @@ router.post("/run", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Agent Pipeline Error:", err.message);
+    console.error("Agent Pipeline Error:", err);
     res.status(500).json({ error: "AI pipeline failed", details: err.message });
   }
 });

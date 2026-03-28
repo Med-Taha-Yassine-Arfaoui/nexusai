@@ -1,30 +1,34 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import http from "http";
 
 import authRoutes from "./src/routes/auth.js";
-import agentsRoute from "./src/routes/agents.js";
+import agentsRoutes from "./src/routes/agents.js";
+import { createWSServer } from "./src/ws/server.js";
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Routes
-app.use("/auth", authRoutes);
-app.use("/agents", agentsRoute);
-
-// Status endpoint
+// ⭐ ADD THIS
 app.get("/api/status", (req, res) => {
   res.json({
-    message: "NexusAI API is online 🚀",
-    status: "operational",
+    status: "ok",
+    message: "Backend is running",
     timestamp: new Date().toISOString(),
   });
 });
 
-// Start server
-app.listen(5000, () => {
-  console.log("Server running at http://localhost:5000");
+// REST (optional)
+app.use("/auth", authRoutes);
+app.use("/agents", agentsRoutes);
+
+// WS SERVER
+const httpServer = http.createServer(app);
+createWSServer(httpServer);
+
+httpServer.listen(5000, () => {
+  console.log("HTTP + WS Server running at http://localhost:5000");
 });

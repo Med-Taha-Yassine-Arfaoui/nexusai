@@ -1,4 +1,3 @@
-import { llm } from "../lib/llm.js";
 
 /**
  * Synthesizer Agent
@@ -8,36 +7,52 @@ import { llm } from "../lib/llm.js";
  *  - Produce a final polished explanation
  *  - Ensure clarity, accuracy, and readability
  *  - Produce structured paragraphs
- */
-export async function runSynthesizer(researcherOutput, criticOutput) {
-  return llm({
-    model: "llama-3.1-8b-instant", // Excellent for writing and synthesis
+ */import { llmStream } from "../lib/llm.js";
+
+export async function runSynthesizerStream(researcherOutput, criticOutput, ws) {
+  ws.send(
+    JSON.stringify({
+      type: "agent_start",
+      agent: "synthesizer",
+    })
+  );
+
+  const stream = await llmStream({
+    model: "llama-3.3-70b-versatile",
     temperature: 0.25,
     messages: [
       {
         role: "system",
-        content: `You are the Synthesizer Agent.
-Your job is to combine the Researcher Agent's findings with the Critic Agent's corrections.
-Write a FINAL clean, polished, accurate explanation.
-
-Rules:
-- FIX every issue the Critic pointed out.
-- KEEP all useful facts from the Researcher.
-- Write in clear, structured paragraphs.
-- No bullet points unless needed.
-- Be concise, accurate, and well-organized.
-- DO NOT mention the Researcher or Critic: write as one unified final answer.`
+        content: `You are the Synthesizer Agent. Combine Researcher and Critic. Produce a clean, polished, unified answer.`,
       },
       {
         role: "user",
-        content: `Researcher output:
-${researcherOutput}
-
-Critic output:
-${criticOutput}
-
-Using both of these, write the final improved answer:`
-      }
-    ]
+        content: `Researcher:\n${researcherOutput}\n\nCritic:\n${criticOutput}\n\nWrite the final improved answer:`,
+      },
+    ],
   });
+
+  let fullText = "";
+
+  for await (const token of stream) {
+    fullText += token;
+
+    ws.send(
+      JSON.stringify({
+        type: "agent_delta",
+        agent: "synthesizer",
+        data: token,
+      })
+    );
+  }
+
+  ws.send(
+    JSON.stringify({
+      type: "agent_end",
+      agent: "synthesizer",
+    })
+  );
+
+  return fullText;
 }
+``

@@ -1,129 +1,175 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+interface CardProps {
+  title: string;
+  active?: boolean;
+  children: React.ReactNode;
+}
 
 export default function AgentsPage() {
   const [query, setQuery] = useState("");
+
   const [researcher, setResearcher] = useState("");
   const [critic, setCritic] = useState("");
   const [synthesizer, setSynthesizer] = useState("");
   const [finalAnswer, setFinalAnswer] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function runAgents() {
-    if (!query.trim()) return;
+  const [connected, setConnected] = useState(false);
+  const [currentAgent, setCurrentAgent] = useState<string | null>(null);
 
-    setLoading(true);
+  const wsRef = useRef<WebSocket | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:5000");
+    wsRef.current = ws;
+
+    ws.onopen = () => setConnected(true);
+    ws.onclose = () => setConnected(false);
+
+    ws.onmessage = (msg) => {
+      const data = JSON.parse(msg.data);
+
+      if (data.type === "agent_start") {
+        setCurrentAgent(data.agent);
+        return;
+      }
+
+      if (data.type === "agent_delta") {
+        if (data.agent === "researcher") setResearcher((t) => t + data.data);
+        if (data.agent === "critic") setCritic((t) => t + data.data);
+        if (data.agent === "synthesizer") setSynthesizer((t) => t + data.data);
+        return;
+      }
+
+      if (data.type === "agent_end") {
+        setCurrentAgent(null);
+        return;
+      }
+
+      if (data.type === "final_answer") {
+        setFinalAnswer(data.data);
+        return;
+      }
+    };
+
+    return () => ws.close();
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [researcher, critic, synthesizer, finalAnswer]);
+
+  function runAgents() {
+    if (!connected) return alert("WebSocket not connected");
+
     setResearcher("");
     setCritic("");
     setSynthesizer("");
     setFinalAnswer("");
 
-    try {
-      const res = await fetch("http://localhost:5000/agents/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-
-      const data = await res.json();
-
-      setResearcher(data.researcher || "");
-      setCritic(data.critic || "");
-      setSynthesizer(data.synthesizer || "");
-      setFinalAnswer(data.final || "");
-    } catch (err) {
-      setFinalAnswer("Error running agents.");
-    }
-
-    setLoading(false);
+    wsRef.current?.send(
+      JSON.stringify({
+        type: "run_agents",
+        prompt: query,
+      })
+    );
   }
 
   return (
-    <div className="min-h-screen p-10 bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white flex justify-center">
-      <div className="w-full max-w-5xl">
+    <div className="min-h-screen p-10 bg-gray-900 text-white">
+      <div className="max-w-5xl mx-auto">
+        
+        {/* HEADER + STATUS */}
+        <div className="flex items-center justify-between mb-5">
+          <h1 className="text-4xl font-bold">Multi‑Agent Streaming System 🤖</h1>
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-3 h-3 rounded-full ${
+                connected ? "bg-green-400 animate-pulse" : "bg-red-500"
+              }`}
+            ></span>
+            <span className="text-sm text-gray-300">
+              {connected ? "Connected" : "Disconnected"}
+            </span>
+          </div>
+        </div>
 
-        {/* Title */}
-        <h1 className="text-5xl font-extrabold text-center bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent drop-shadow-xl">
-          Multi‑Agent AI System 🤖
-        </h1>
-        <p className="text-center text-gray-300 mt-3">
-          Ask a question and watch 3 AI agents collaborate in real‑time.
-        </p>
-
-        {/* Glass Input Box */}
-        <div className="mt-10 flex gap-4">
+        {/* INPUT BAR */}
+        <div className="flex gap-4">
           <input
-            placeholder="Ask the AI something..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 p-4 rounded-xl bg-white/10 backdrop-blur-lg border border-white/20 text-white placeholder-gray-300 shadow-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            placeholder="Ask something..."
+            className="flex-1 p-4 bg-gray-800 border border-gray-600 rounded-lg"
           />
           <button
             onClick={runAgents}
-            disabled={loading}
-            className="px-6 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 shadow-xl font-semibold"
+            className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700"
           >
-            {loading ? "Thinking..." : "Run Agents"}
+            Run Agents
           </button>
         </div>
 
-        {/* Agent Sections */}
-        <div className="grid grid-cols-1 gap-8 mt-12">
+        {/* AGENT OUTPUTS */}
+        <div className="mt-10 space-y-6">
+          
+          <Card title="📘 Researcher" active={currentAgent === "researcher"}>
+            <pre className="whitespace-pre-wrap text-gray-200 typing">
+              {researcher || "Waiting..."}
+            </pre>
+          </Card>
 
-          {/* Researcher */}
-          <GlassCard title="📘 Researcher Output" color="blue">
-            {researcher || (loading ? "Researcher is gathering information..." : "")}
-          </GlassCard>
+          <Card title="📝 Critic" active={currentAgent === "critic"}>
+            <pre className="whitespace-pre-wrap text-gray-200 typing">
+              {critic || "Waiting..."}
+            </pre>
+          </Card>
 
-          {/* Critic */}
-          <GlassCard title="📝 Critic Output" color="red">
-            {critic || (loading ? "Critic is analyzing..." : "")}
-          </GlassCard>
+          <Card title="✨ Synthesizer" active={currentAgent === "synthesizer"}>
+            <pre className="whitespace-pre-wrap text-gray-200 typing">
+              {synthesizer || "Waiting..."}
+            </pre>
+          </Card>
 
-          {/* Synthesizer */}
-          <GlassCard title="✨ Synthesizer Output" color="green">
-            {synthesizer || (loading ? "Synthesizer is writing..." : "")}
-          </GlassCard>
+          <Card title="🎯 Final Answer">
+            <pre className="whitespace-pre-wrap text-gray-200 typing">
+              {finalAnswer || "Waiting for final answer..."}
+            </pre>
+          </Card>
 
-          {/* Final Answer */}
-          <GlassCard title="🎯 Final Answer" color="purple" large>
-            {finalAnswer || (loading ? "Finalizing answer..." : "")}
-          </GlassCard>
-
+          <div ref={bottomRef}></div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------- Reusable GlassCard Component ---------- */
-
-function GlassCard({ title, color, children, large }: any) {
-  const colorMap: any = {
-    blue: "from-blue-500/30 to-blue-300/10 border-blue-400/40",
-    red: "from-red-500/30 to-red-300/10 border-red-400/40",
-    green: "from-green-500/30 to-green-300/10 border-green-400/40",
-    purple: "from-purple-500/30 to-purple-300/10 border-purple-400/40",
-  };
-
+function Card({ title, active = false, children }: CardProps) {
   return (
     <div
       className={`
-        p-6 rounded-2xl shadow-2xl border backdrop-blur-xl
-        bg-gradient-to-br ${colorMap[color]}
+        relative p-6 rounded-xl bg-gray-800 border
+        transition-all duration-300 ease-out
+        ${active 
+          ? "border-blue-400 shadow-lg shadow-blue-500/40 scale-[1.02]" 
+          : "border-gray-600 opacity-90"
+        }
       `}
     >
-      <h2 className="text-2xl font-bold mb-3 drop-shadow-sm">{title}</h2>
+      <div className="flex items-center gap-3 mb-2">
+        <span
+          className={`
+            w-3 h-3 rounded-full 
+            ${active ? "bg-blue-400 animate-pulse" : "bg-gray-500"}
+          `}
+        ></span>
+        <span className="text-xl font-bold">{title}</span>
+      </div>
 
-      <pre
-        className={`
-          whitespace-pre-wrap p-4 rounded-xl bg-black/30 shadow-inner text-gray-100 
-          ${large ? "text-lg leading-relaxed" : "text-md"}
-        `}
-      >
-        {children}
-      </pre>
+      <div className="leading-relaxed">{children}</div>
     </div>
   );
 }
