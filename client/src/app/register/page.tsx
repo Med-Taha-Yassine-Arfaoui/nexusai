@@ -4,14 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
     try {
       const res = await fetch("http://localhost:5000/auth/register", {
@@ -21,48 +20,62 @@ export default function RegisterPage() {
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Registration failed");
 
-      if (!res.ok) {
-        setError(data.error || "Registration failed");
-        return;
-      }
+      // ❗ AFTER registration, redirect to LOGIN (not agents)
+      router.replace("/login");
 
-      localStorage.setItem("token", data.token);
-      router.push("/dashboard");
-    } catch (err) {
-      setError("Server error");
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
   return (
-    <div style={{ padding: "40px", maxWidth: 400, margin: "auto" }}>
-      <h1>Register</h1>
+    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white p-4">
+      <div className="w-full max-w-md bg-slate-900 p-8 rounded-xl border border-slate-800 shadow-lg">
+        <h1 className="text-center text-3xl text-blue-500 mb-6">Join NexusAI</h1>
 
-      <form onSubmit={handleRegister} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ padding: 10 }}
-        />
+        {error && (
+          <p className="text-red-400 bg-red-500/20 p-3 rounded mb-4">
+            {error}
+          </p>
+        )}
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ padding: 10 }}
-        />
+        <form onSubmit={handleRegister} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            required
+            className="w-full p-3 rounded bg-slate-800 border border-slate-700 focus:border-blue-500 outline-none"
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
-        <button type="submit" style={{ padding: 10, background: "#1f6feb", color: "white" }}>
-          Create Account
-        </button>
+          <input
+            type="password"
+            placeholder="Password"
+            required
+            className="w-full p-3 rounded bg-slate-800 border border-slate-700 focus:border-blue-500 outline-none"
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
-      </form>
+          <button
+            type="submit"
+            className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded font-bold transition"
+          >
+            Create Account
+          </button>
+        </form>
+
+        <p className="mt-4 text-sm text-gray-400 text-center">
+          Already have an account?
+          <span
+            className="ml-1 text-blue-500 cursor-pointer hover:underline"
+            onClick={() => router.push("/login")}
+          >
+            Log in
+          </span>
+        </p>
+      </div>
     </div>
   );
 }
