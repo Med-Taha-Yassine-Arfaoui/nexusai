@@ -6,7 +6,7 @@ import http from "http";
 import authRoutes from "./src/routes/auth.js";
 import agentsRoutes from "./src/routes/agents.js";
 import { createWSServer } from "./src/ws/server.js";
-
+import chatRoutes from "./src/routes/chat.js";
 const app = express();
 
 app.use(cors());
@@ -24,7 +24,7 @@ app.get("/api/status", (req, res) => {
 // REST (optional)
 app.use("/auth", authRoutes);
 app.use("/agents", agentsRoutes);
-
+app.use("/chat", chatRoutes);
 // WS SERVER
 const httpServer = http.createServer(app);
 createWSServer(httpServer);
