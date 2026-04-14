@@ -23,3 +23,13 @@ model Report {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 }
+model MarketData {
+  id              Int      @id @default(autoincrement())
+  codeisin        String?
+  mnemo           String?
+  last_trade_price Float?
+  quantity        Float?
+  var_prev_close  Float?
+  time            DateTime?
+  ingested_at     DateTime?
+}
