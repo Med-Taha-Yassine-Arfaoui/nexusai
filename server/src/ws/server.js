@@ -1,8 +1,10 @@
 import { WebSocketServer } from "ws";
 import { orchestrateAgents } from "./orchestrator.js";
+import { setMarketAlertWss } from "./marketAlertBroadcast.js";
 
 export function createWSServer(server) {
   const wss = new WebSocketServer({ server });
+  setMarketAlertWss(wss);
 
   console.log("🔧 WebSocket server initialized");
 

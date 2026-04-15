@@ -32,6 +32,7 @@ export default function ProtectedLayout({
 
   const menu = [
     { name: "Home", path: "/", icon: "🏠" },
+    { name: "Finance", path: "/finance", icon: "📈" },
     { name: "Research", path: "/agents", icon: "🧠" },
     { name: "Chat", path: "/chat", icon: "💬" },
     { name: "Memory", path: "/memory", icon: "📚" },
