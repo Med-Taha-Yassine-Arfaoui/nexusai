@@ -3,6 +3,10 @@ import express from "express";
 import cors from "cors";
 import http from "http";
 
+
+
+import marketRoutes from "./src/routes/market.js";  
+
 import authRoutes from "./src/routes/auth.js";
 import agentsRoutes from "./src/routes/agents.js";
 import { createWSServer } from "./src/ws/server.js";
@@ -11,6 +15,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/api/market", marketRoutes);
 
 // ⭐ ADD THIS
 app.get("/api/status", (req, res) => {
