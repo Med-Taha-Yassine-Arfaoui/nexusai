@@ -108,6 +108,7 @@ router.get("/summary/ai", async (req, res) => {
           patternDetail: alertResult.patternDetail,
           lowConfidenceMode: alertResult.lowConfidenceMode,
           signalsPresent: alertResult.signalsPresent,
+          macro: alertResult.macro ?? null,
         };
 
     const { payload: ai, source } = await runMarketSummaryAi(deterministic, intelligence);

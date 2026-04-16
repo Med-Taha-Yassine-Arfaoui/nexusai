@@ -137,6 +137,23 @@ type AlertHistoryStats = {
   bySector: Record<string, number>;
 };
 
+type MacroContextPayload = {
+  context: { regime: string; pressure: string; label: string | null };
+  signals:
+    | { key: string; value: number; label: string; detail?: string }[]
+    | {
+        regime?: string;
+        external_pressure?: boolean;
+        monetary_tightening?: boolean;
+        monetary_easing?: boolean;
+        details?: string[];
+      };
+  meta?: { bctConfidence?: "high" | "medium" | "low" };
+  indicators?: { policy_rate?: number | null; money_market_rate?: number | null };
+  source: string;
+  unavailable?: boolean;
+};
+
 export default function FinancePage() {
   const [data, setData] = useState<{
     stocks: Stock[];
@@ -179,6 +196,7 @@ export default function FinancePage() {
   const [alertRegime, setAlertRegime] = useState<string | null>(null);
   const [alertPattern, setAlertPattern] = useState<string | null>(null);
   const [alertPatternDetail, setAlertPatternDetail] = useState<string | null>(null);
+  const [macroContext, setMacroContext] = useState<MacroContextPayload | null>(null);
   const [alertHistory, setAlertHistory] = useState<AlertHistoryEntry[]>([]);
   const [alertHistoryStats, setAlertHistoryStats] = useState<AlertHistoryStats | null>(null);
 
@@ -301,6 +319,7 @@ export default function FinancePage() {
           setAlertRegime(null);
           setAlertPattern(null);
           setAlertPatternDetail(null);
+          setMacroContext(null);
           setAlertHistory([]);
           setAlertHistoryStats(null);
           return;
@@ -313,12 +332,14 @@ export default function FinancePage() {
         setAlertRegime(j.regime ?? null);
         setAlertPattern(j.pattern ?? null);
         setAlertPatternDetail(j.patternDetail ?? null);
+        setMacroContext(j.macro ?? null);
         setAlertHistory(j.history || []);
         setAlertHistoryStats(j.historyStats ?? null);
       } catch {
         if (!cancelled) {
           setAlertsError("Failed to load alerts.");
           setAlerts([]);
+          setMacroContext(null);
           setAlertHistory([]);
           setAlertHistoryStats(null);
         }
@@ -398,6 +419,64 @@ export default function FinancePage() {
             {globalContext.label}
             {typeof globalContext.dominance === "number" && (
               <span className="text-fuchsia-200/80"> · {Math.round(globalContext.dominance * 100)}% banking share</span>
+            )}
+          </div>
+        )}
+        {macroContext?.context?.label && (
+          <div
+            className={`mb-3 rounded border px-3 py-2 text-xs ${
+              macroContext.context.regime === "risk_off_macro"
+                ? "border-orange-500/40 bg-orange-950/25 text-orange-100"
+                : "border-slate-600/50 bg-slate-950/60 text-slate-300"
+            }`}
+          >
+            <span className="font-semibold text-slate-400">Macro (INS): </span>
+            {macroContext.context.label}
+            {Array.isArray(macroContext.signals) && macroContext.signals?.[0]?.detail && (
+              <span className="text-slate-500 block mt-0.5 font-mono text-[10px]">
+                {macroContext.signals[0].detail}
+              </span>
+            )}
+            {!Array.isArray(macroContext.signals) &&
+              macroContext.signals?.details?.length > 0 && (
+                <span className="text-slate-500 block mt-0.5 font-mono text-[10px]">
+                  {macroContext.signals.details[0]}
+                </span>
+              )}
+            {!Array.isArray(macroContext.signals) && (
+              <div className="mt-1 text-[11px] text-slate-300 space-y-0.5">
+                <div>
+                  External Pressure:{" "}
+                  <span className="font-semibold">
+                    {macroContext.signals.external_pressure ? "YES" : "NO"}
+                  </span>
+                </div>
+                <div>
+                  Monetary Policy:{" "}
+                  <span className="font-semibold">
+                    {macroContext.signals.monetary_tightening
+                      ? "Tightening"
+                      : macroContext.signals.monetary_easing
+                        ? "Easing"
+                        : "Neutral"}
+                  </span>
+                </div>
+                <div>
+                  Regime:{" "}
+                  <span className="font-semibold">
+                    {macroContext.signals.regime?.replace(/_/g, " ") || "neutral"}
+                  </span>
+                  {macroContext.meta?.bctConfidence && (
+                    <span className="text-slate-500">
+                      {" "}
+                      · BCT confidence: {macroContext.meta.bctConfidence}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {macroContext.unavailable && (
+              <span className="text-slate-500"> · feed unavailable</span>
             )}
           </div>
         )}

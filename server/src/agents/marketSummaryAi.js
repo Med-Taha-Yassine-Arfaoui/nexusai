@@ -12,6 +12,7 @@ STRICT RULES:
 - Do NOT speculate beyond what the signals support.
 - If coverage is thin or signals conflict (e.g. anomaly field), say so briefly in "analysis" or in "risks".
 - If "intelligence" is present, treat activeAlerts, globalContext, pattern, and lowConfidenceMode as authoritative overlays on the engine summary (do not contradict them).
+- If "intelligence.macro" is present, you may cite it briefly as INS-derived statistics already embedded in the JSON; do not invent other macro indicators or policy narratives.
 - Output MUST be a single JSON object only. No markdown, no code fences, no prose outside JSON.
 
 Your job:
@@ -105,6 +106,9 @@ export function buildDeterministicAiFromSummary(d) {
   if (intel.pattern) {
     keyDrivers.push(`Pattern: ${intel.pattern.replace(/_/g, " ")}`);
   }
+  if (intel.macro?.context?.label) {
+    keyDrivers.push(intel.macro.context.label);
+  }
   keyDrivers.push(`Short-term timing: ${d.shortTerm}`);
   keyDrivers.push(`Medium-term regime: ${d.mediumTerm}`);
   keyDrivers.push(`Market tone: ${d.marketState}`);
@@ -124,6 +128,9 @@ export function buildDeterministicAiFromSummary(d) {
   }
   if (intel.lowConfidenceMode) {
     risks.push("Model confidence is reduced; insights are for situational awareness");
+  }
+  if (intel.macro?.context?.regime === "risk_off_macro") {
+    risks.push("Macro modifier: external trade pressure (INS) reinforces defensive read on market risk");
   }
 
   const opportunities = [];
@@ -178,6 +185,7 @@ function buildIntelligencePayload(intelligence) {
     patternDetail: intelligence.patternDetail ?? null,
     lowConfidenceMode: !!intelligence.lowConfidenceMode,
     signalsPresent: !!intelligence.signalsPresent,
+    macro: intelligence.macro ?? null,
   };
 }
 

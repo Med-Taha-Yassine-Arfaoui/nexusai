@@ -33,3 +33,18 @@ model MarketData {
   time            DateTime?
   ingested_at     DateTime?
 }
+
+/// INS / future BCT ingested series (one row per period per indicator).
+model MacroIndicator {
+  id         Int      @id @default(autoincrement())
+  source     String
+  indicator  String
+  period     String
+  value      Decimal  @db.Decimal(24, 6)
+  rowOrder   Int
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@unique([source, indicator, period])
+  @@index([source, indicator, rowOrder])
+}

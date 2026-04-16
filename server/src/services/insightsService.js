@@ -11,6 +11,7 @@ import {
   touchPersistence,
   updateRotationTrack,
 } from "../lib/alertStore.js";
+import { applyMacroToAlerts, getMacroContext } from "../macro/macroContext.js";
 
 const prisma = new PrismaClient();
 export const sectorMap = {
@@ -734,11 +735,26 @@ function mergeSeverity(a, b) {
  * Respects summary confidence gate. WS broadcast uses separate dedup cooldown.
  * @param {{ sideEffects?: boolean }} [options] If false, skip history append and escalation/rotation mutations (for read-only consumers such as the AI route).
  */
+async function loadMacroContextSafe() {
+  try {
+    return await getMacroContext();
+  } catch {
+    return {
+      context: { regime: "neutral", pressure: "none", label: null },
+      signals: [],
+      source: "INS",
+      unavailable: true,
+    };
+  }
+}
+
 export async function getMarketAlerts(options = {}) {
   const sideEffects = options.sideEffects !== false;
-  const [summaryResult, riskResult] = await Promise.all([
+  const macroPromise = loadMacroContextSafe();
+  const [summaryResult, riskResult, macro] = await Promise.all([
     getUnifiedSummary(),
     getRiskInsights(),
+    macroPromise,
   ]);
 
   if (summaryResult?.error) {
@@ -762,6 +778,7 @@ export async function getMarketAlerts(options = {}) {
       pattern: patternEarly.pattern,
       patternDetail: patternEarly.detail,
       rotationIntel: getRotationTrack(),
+      macro,
       history: getAlertHistory(30),
       historyStats: getAlertHistoryStats(),
     };
@@ -889,7 +906,9 @@ export async function getMarketAlerts(options = {}) {
     return out;
   });
 
-  alerts.sort((a, b) => {
+  const alertsAfterMacro = applyMacroToAlerts(alerts, macro, summary);
+
+  alertsAfterMacro.sort((a, b) => {
     const ra = severityRank(a.severity);
     const rb = severityRank(b.severity);
     if (ra !== rb) return ra - rb;
@@ -899,7 +918,7 @@ export async function getMarketAlerts(options = {}) {
   if (sideEffects) {
     const ts = new Date().toISOString();
     appendAlertHistoryEntries(
-      alerts.map((a) => ({
+      alertsAfterMacro.map((a) => ({
         message: a.message,
         sector: a.sector,
         severity: a.severity,
@@ -912,7 +931,7 @@ export async function getMarketAlerts(options = {}) {
   }
 
   return {
-    alerts,
+    alerts: alertsAfterMacro,
     confidence: conf,
     lowConfidenceMode,
     signalsPresent,
@@ -922,6 +941,7 @@ export async function getMarketAlerts(options = {}) {
     patternDetail: patternResult.detail,
     rotationIntel: getRotationTrack(),
     opportunityStrength: summary.opportunityStrength,
+    macro,
     history: getAlertHistory(30),
     historyStats: getAlertHistoryStats(),
   };

@@ -12,6 +12,7 @@ import authRoutes from "./src/routes/auth.js";
 import agentsRoutes from "./src/routes/agents.js";
 import { createWSServer } from "./src/ws/server.js";
 import { startAlertEngine } from "./src/jobs/alertEngine.js";
+import { runMacroIngestTick } from "./src/macro/ins/insIngestJob.js";
 import chatRoutes from "./src/routes/chat.js";
 const app = express();
 
@@ -39,5 +40,15 @@ createWSServer(httpServer);
 
 httpServer.listen(5000, () => {
   startAlertEngine(30_000);
+  runMacroIngestTick().catch((e) =>
+    console.error("[macroIngest] initial:", e.message)
+  );
+  setInterval(
+    () =>
+      runMacroIngestTick().catch((e) =>
+        console.error("[macroIngest] scheduled:", e.message)
+      ),
+    60 * 60 * 1000
+  );
   console.log("HTTP + WS Server running at http://localhost:5000");
 });
