@@ -1,0 +1,42 @@
+{
+  "lastFingerprint": "{\"inflation\":null,\"policy_rate\":7.49,\"money_market_rate\":7.49,\"external_pressure\":true,\"monetary_policy\":\"NEUTRAL\"}",
+  "lastExplanation": {
+    "summary": "External pressure is present, monetary policy is neutral.",
+    "macro_regime": "NEUTRAL",
+    "confidence": "MEDIUM",
+    "drivers": [
+      {
+        "type": "EXTERNAL",
+        "impact": "BEARISH",
+        "explanation": "External pressure is present (+100% from unknown baseline)"
+      },
+      {
+        "type": "LIQUIDITY",
+        "impact": "NEUTRAL",
+        "explanation": "Money market rate is unchanged at 7.49%"
+      },
+      {
+        "type": "RATES",
+        "impact": "NEUTRAL",
+        "explanation": "Policy rate is unchanged at 7.49%"
+      }
+    ],
+    "implications": [
+      "External pressure may impact economic growth"
+    ],
+    "risks": [
+      "Increased external pressure"
+    ],
+    "score": {
+      "risk": 50,
+      "opportunity": 50
+    }
+  },
+  "lastIndicators": {
+    "inflation": null,
+    "policy_rate": 7.49,
+    "money_market_rate": 7.49,
+    "external_pressure": true,
+    "monetary_policy": "NEUTRAL"
+  }
+}

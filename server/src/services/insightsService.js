@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { getSectorProfile } from "../config/sectorProfiles.js";
+import sectorMap, { getSector } from "../lib/sectorMap.js";
 import {
   appendAlertHistoryEntries,
   detectAlertPattern,
@@ -12,15 +13,10 @@ import {
   updateRotationTrack,
 } from "../lib/alertStore.js";
 import { applyMacroToAlerts, getMacroContext } from "../macro/macroContext.js";
+import { getMacroExplanation } from "../agents/macroExplanation.js";
 
 const prisma = new PrismaClient();
-export const sectorMap = {
-  ATB: "banking",
-  BIAT: "banking",
-  BH: "banking",
-  BT: "banking",
-  TLNET: "technology",
-};
+// legacy local sectorMap removed — use shared getSector() from lib/sectorMap.js
 
 function avg(values) {
   if (!values.length) return 0;
@@ -269,7 +265,7 @@ export async function getRiskInsights() {
   const sectorBuckets = {};
   for (const row of latestByTicker) {
     const ticker = (row.mnemo || "").trim().toUpperCase();
-    const sector = sectorMap[ticker] || "other";
+    const sector = getSector(ticker);
     if (!sectorBuckets[sector]) {
       sectorBuckets[sector] = {
         totalVolume: 0,
@@ -459,7 +455,7 @@ export async function getCapitalFlowInsights() {
   const sectorAggregation = {};
   latestByTicker.forEach((stock) => {
     const ticker = (stock.mnemo || "").trim().toUpperCase();
-    const sector = sectorMap[ticker] || "other";
+    const sector = getSector(ticker);
     if (!sectorAggregation[sector]) {
       sectorAggregation[sector] = {
         totalVolume: 0,
@@ -751,6 +747,7 @@ async function loadMacroContextSafe() {
 export async function getMarketAlerts(options = {}) {
   const sideEffects = options.sideEffects !== false;
   const macroPromise = loadMacroContextSafe();
+  const macroExplanationPromise = macroPromise.then((m) => getMacroExplanation(m));
   const [summaryResult, riskResult, macro] = await Promise.all([
     getUnifiedSummary(),
     getRiskInsights(),
@@ -930,6 +927,26 @@ export async function getMarketAlerts(options = {}) {
     );
   }
 
+  function formatMacroForUI(m) {
+    if (!m) return null;
+    const signals = m.signals || {};
+    const indicators = m.indicators || {};
+    return {
+      externalPressure: signals.external_pressure ? "YES" : "NO",
+      monetaryPolicy: signals.monetary_tightening
+        ? "Tightening"
+        : signals.monetary_easing
+        ? "Easing"
+        : "Neutral",
+      policyRate: Number.isFinite(indicators.policy_rate) ? indicators.policy_rate : null,
+      moneyMarketRate: Number.isFinite(indicators.money_market_rate)
+        ? indicators.money_market_rate
+        : null,
+      bctConfidence: m.meta?.bctConfidence ?? null,
+      policyRateProxy: !!indicators.policy_rate_proxy,
+    };
+  }
+
   return {
     alerts: alertsAfterMacro,
     confidence: conf,
@@ -942,6 +959,8 @@ export async function getMarketAlerts(options = {}) {
     rotationIntel: getRotationTrack(),
     opportunityStrength: summary.opportunityStrength,
     macro,
+    macroUi: formatMacroForUI(macro),
+    macroExplanation: await macroExplanationPromise,
     history: getAlertHistory(30),
     historyStats: getAlertHistoryStats(),
   };
@@ -989,11 +1008,13 @@ export async function explainTicker(ticker) {
     : 0;
   const marketTrend = getMarketTrend(avgChange);
 
-  const sector = sectorMap[normalizedTicker] || "unknown";
+  const sector = getSector(normalizedTicker);
   let sectorAvg = 0;
   let sectorTrend = "neutral";
 
-  if (sector !== "unknown") {
+  // Only compute sector aggregates if the sector is known in our mapping
+  const knownSectors = new Set(Object.values(sectorMap));
+  if (knownSectors.has(sector)) {
     const sectorTickers = Object.keys(sectorMap).filter((key) => sectorMap[key] === sector);
     const sectorStocks = await prisma.marketData.findMany({
       where: {

@@ -38,7 +38,18 @@ app.use("/chat", chatRoutes);
 const httpServer = http.createServer(app);
 createWSServer(httpServer);
 
-httpServer.listen(5000, () => {
+const PORT = process.env.PORT || 5000;
+
+httpServer.on("error", (err) => {
+  if (err && err.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Set a different PORT or stop the process using it.`);
+  } else {
+    console.error("HTTP server error:", err);
+  }
+  process.exit(1);
+});
+
+httpServer.listen(PORT, () => {
   startAlertEngine(30_000);
   runMacroIngestTick().catch((e) =>
     console.error("[macroIngest] initial:", e.message)
@@ -50,5 +61,5 @@ httpServer.listen(5000, () => {
       ),
     60 * 60 * 1000
   );
-  console.log("HTTP + WS Server running at http://localhost:5000");
+  console.log(`HTTP + WS Server running at http://localhost:${PORT}`);
 });

@@ -129,19 +129,24 @@ def save_to_db(market):
     conn = psycopg2.connect("postgresql://postgres:yassine@localhost:5432/nexusai")
     cursor = conn.cursor()
     for stock in market:
-        cursor.execute("""
-            INSERT INTO "MarketData" 
-            (codeisin, mnemo, last_trade_price, quantity, var_prev_close, time, ingested_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (
-            stock["codeisin"],
-            stock["mnemo"],
-            stock["last_trade_price"],
-            stock["quantity"],
-            stock["var_prev_close"],
-            stock["time"],
-            stock["ingested_at"]
-        ))
+      cursor.execute("""
+    INSERT INTO "MarketData" 
+    (codeisin, mnemo, last_trade_price, quantity, var_prev_close, time, ingested_at)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (codeisin, time) DO UPDATE SET
+        last_trade_price = EXCLUDED.last_trade_price,
+        quantity = EXCLUDED.quantity,
+        var_prev_close = EXCLUDED.var_prev_close,
+        ingested_at = EXCLUDED.ingested_at
+""", (
+    stock["codeisin"],
+    stock["mnemo"],
+    stock["last_trade_price"],
+    stock["quantity"],
+    stock["var_prev_close"],
+    stock["time"],
+    stock["ingested_at"]
+))
     conn.commit()
     cursor.close()
     conn.close()
